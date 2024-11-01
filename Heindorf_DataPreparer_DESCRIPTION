@@ -1,0 +1,18 @@
+Package: DataPreparer
+Title: Dataset Cleaning and Analysis Preparation
+Version: 0.0.0.9000
+Authors@R: 
+    person("Gavin", "Heindorf", , "gheindorf@usf.edu", 
+    role = c("aut", "cre"))
+Description: Code variables, rescale, create labels, 
+  work with conditionals, and complete other routine
+  task involved in the cleaning and preparation of
+  simple and complex datasets.
+License: use_cc0_license()
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+  tidyverse
+LazyData: true
+
