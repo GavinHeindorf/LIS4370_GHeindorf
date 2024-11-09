@@ -21,7 +21,7 @@ tukey_multiple(tester)
 #debug(tukey_multiple)
 #tukey_multiple(tester)
 #Error in outliers[, j] && tukey.outlier(x[, j]) : 
-#  'length = 2' in coercion to 'logical(1)'
+#  'length = 6' in coercion to 'logical(1)'
 #undebug(tukey_multiple)
 
 ####Code used in command line:
