@@ -1,0 +1,363 @@
+---
+title: "Heindorf: Final Project Functions"
+output: html_document
+date: "2024-11-17"
+author: Gavin Heindorf
+---
+
+## **Libraries**
+```{r}
+library(tidyverse)
+library(stringr)
+
+```
+
+## **Label Creator**
+* Purpose: can create a large number of unique labels very fast given a base and unique component to combine
+* Arguments:
+  + base: the stem(s) to use for all labels
+  + unique: the optional unique component for each individual label
+  + order: order in which unique components are used
+  + uniquefront: (T/F) should unique component be put in front
+  + base_sep: if multiple base components are provided, how to separate them
+  + base_to_unique_sep: how to separate base component from unique component
+  + copies: how many copies of all the labels should be made (default = 1)
+  
+```{r}
+label_creator <- function(base, unique = NULL, 
+                          order = 1:length(unique), 
+                          uniquefront = F,
+                          base_sep = " ", 
+                          base_to_unique_sep = " ", 
+                          copies = 1){
+  
+  ###Argument Checking
+  if (missing(base)){
+    stop("Argument 'base' is missing without default")
+  }
+  stopifnot(is.integer(order), is.character(base_sep), 
+            is.character(base_to_unique_sep), is.numeric(copies),
+            is.logical(uniquefront), copies >= 1)
+  if (!(is.null(unique)) & length(order) != length(unique)){
+    stop("Argument 'order' must be same length as 'unique'")
+  }
+  if (length(base_to_unique_sep) != 1 & 
+      length(base_to_unique_sep) != length(unique)){
+    stop("Argument 'base_to_unique_sep' does not equal 1 or length of 'unique'")
+  }
+  
+  ###Functional Code
+  new_labels <- c()
+  if (!(is.null(unique))){
+    if (uniquefront){
+      for (i in order){
+        new_labels <- c(new_labels, paste(unique[i], 
+                                  paste(base, collapse = base_sep), 
+                                  sep = base_to_unique_sep))
+      }
+    } else{
+      for (i in order){
+        new_labels <- c(new_labels, 
+                        paste(paste(base, collapse = base_sep), 
+                                  unique[i],
+                                  sep = base_to_unique_sep))
+      }
+    }
+  } else {
+    order = 1
+      for (i in order){
+        new_labels <- c(new_labels, paste(base, collapse = base_sep))
+      }
+  }
+  ###Finalize copies and return
+  if (copies != 1){
+    final_copies <- list()
+    for (i in 1:copies){
+      final_copies[[i]] <- new_labels
+    }
+    return(final_copies)
+  } else {
+    return(new_labels)
+  }
+}
+```
+
+## **Series Identifier**
+* Purpose: Identify the occurences of a series within a larger vector
+* Arguments:
+  + series: the series to identify within the vector
+  + vector: the vector in which to identify the series
+  + overlap: (T/F) can the identified series within the vector overlap with each other
+  + indices: (T/F) should the indices of each series be returned
+
+```{r}
+series_identifier <- function(series, vector, 
+                              overlap = F, indices = F){
+  if (missing(series)){
+    stop("Error: No series provided")
+  }
+  if (missing(vector)){
+    stop("Error: No vector provided")
+  }
+  stopifnot(is.vector(vector), is.logical(overlap))
+  if (length(series) >= length(vector)){
+    stop("Error: Series provided is longer than or the same length as the vector provided")
+  }
+  
+  slength <- length(series)
+  inds <- 1:length(vector)
+  keepers <- 1:slength
+  
+  names(vector) <- inds
+  
+  totalmatches <- 0
+  foundindices <- list()
+  
+  if (overlap){
+    i = 1
+    while (length(keepers) >= slength){
+      curset <- vector[as.character(i:(i+slength-1))]
+      if (all(curset == series)){
+        totalmatches <- totalmatches + 1
+        if (indices){foundindices[[totalmatches]] <-
+          as.character(i:(i+slength-1))}
+      }
+      keepers <- setdiff(inds, 1:i)
+      vector <- vector[as.character(keepers)]
+      i <- i + 1
+    }
+  } else {
+    i = 1
+    while (length(keepers) >= slength){
+      curset <- vector[as.character(i:(i+slength-1))]
+      if (all(curset == series)){
+        keepers <- setdiff(inds, c(1:(i+slength-1)))
+        totalmatches <- totalmatches + 1
+        if (indices){foundindices[[totalmatches]] <-
+          as.character(i:(i+slength-1))}
+        vector <- vector[as.character(keepers)]
+        i <- i + (slength)
+      } else{
+        keepers <- setdiff(inds, 1:i)
+        vector <- vector[as.character(keepers)]
+        i <- i + 1
+      }
+    }
+  }
+  if (indices){return(list(total = totalmatches, 
+                           matchindices = foundindices))}
+  else{return(list(total = totalmatches))}
+}
+```
+
+## **Recode Values**
+* Purpose: Recode a variable given a new set of values, or simple reverse code if desired
+* Arguments:
+  + variable: the variable with values to be recoded
+  + reverse: (T/F) should values simply be reverse coded
+  + curlevels: the current levels within the variable
+  + newlevels: the levels to replace the current levels with
+  + labels: labels to use for the new levels
+  + remove: the current levels you would like removed before recoding
+
+```{r}
+recode_values <- function(variable, reverse = T, curlevels = F, newlevels = F, labels = F, remove = F){
+  
+  if (missing(variable)){
+    stop("Error: No variable provided")
+  }
+  
+  if (!isFALSE(curlevels) | !isFALSE(newlevels)){
+    stopifnot(is.vector(curlevels), is.vector(newlevels), 
+              length(curlevels) == length(newlevels), 
+              length(curlevels) > 0)
+    reverse <- F
+  }
+  
+  stopifnot(is.logical(reverse))
+  
+  if (reverse){
+    stopifnot(is.numeric(variable))
+    if (!isFALSE(labels)){
+      print("WARNING: Labels is being ignored, values are being reverse coded")
+    }
+  }
+  
+  if (!isFALSE(labels)){
+    stopifnot(is.vector(labels))
+    if (!isFALSE(curlevels)){
+      stopifnot(length(labels) == length(newlevels))
+    }
+  }
+  
+  if (!isFALSE(remove)){
+    stopifnot(is.vector(remove), remove %in% variable, 
+              (length(variable)-length(remove)) > 0)
+    if (!isFALSE(curlevels)){
+      stopifnot((length(levels(factor(variable)))-length(remove)) == length(curlevels),
+                all(curlevels %in% setdiff(variable, remove)))
+    }
+    newvar <- variable[which(variable %in% setdiff(variable, remove))]
+  } else {
+    newvar <- variable
+  }
+  
+  
+  if (!isFALSE(curlevels)){
+    for (i in 1:length(curlevels)){
+      newvar[which(newvar == curlevels[i])] <- 
+        newlevels[i]
+    }
+
+    if (!isFALSE(labels)){
+      return(factor(x = newvar, levels = newlevels, 
+                  labels = labels))
+    } else{
+      return(factor(x = newvar, levels = newlevels))
+    }
+  } else if (reverse){
+    curs <- order(levels(factor(newvar)))
+    curs <- rev(curs)
+    indices <- list()
+    final <- newvar
+    for (i in 1:length(curs)){
+      indices <- which(newvar == curs[i])
+      final[indices] <- rev(curs)[i]
+    }
+    return(factor(x = final))
+  }
+}
+```
+
+## **Missingness Summarizer**
+* Purpose: summarize the amount of missing data within a vector or dataframe
+* Arguments:
+  + data: a vector or dataframe to summarize the missingness within
+  + missing: the value that represents missing data (*NA* by default)
+  + returnFulls: (T/F) should only full cases be returned
+  + histogram: (T/F) if a dataframe, should a histogram displaying the distribution of missing data be printed
+  + axis: 1 = by columns; 2 = by rows
+
+```{r}
+missingness <- function(data, missing = NA, returnFulls = F, histogram = F, 
+                        axis = 1){
+  
+  if (is.vector(data)){
+    returnFulls = F
+    if (histogram){
+      warning("Ignorning histogram = T because 'data' is vector")
+      histogram = F
+    }
+  } else if (is.dataframe(data)){
+    stopifnot(axis %in% c(1, 2))
+  } else{
+    stop("ERROR: 'data' is not a dataframe or vector")
+    }
+  
+  stopifnot(is.logical(histogram), is.logical(returnFulls))
+  
+  
+  if (is.vector(data)){
+    if (is.na(missing)){
+      return(sum(is.na(data)))
+    } else {
+      return(length(which(data == missing)))
+    }
+  } else{
+    
+    if (is.na(missing)){
+      res <- apply(apply(data, axis, is.na), axis, sum)
+    } else {
+      counter <- function(x, miss){return(lenght(which(x == miss)))}
+      res <- apply(data, axis, counter, miss = missing)
+    }
+    
+    if (returnFulls){
+      fulls <- which(res == 0)
+      toreturn <- list(newdata = data[fulls], missingness = res)
+    } else {
+      toreturn <- res
+    }
+    
+    if (histogram){
+      print(ggplot(data.frame(xy = res), aes(x = xy))+geom_histogram()+theme_classic()+
+              labs(x = "Number of Missing Values", y = "Frequency", 
+                  title = "Distribution of Missing Values within Dataframe"))
+    }
+    
+    return(toreturn)
+  }
+}
+```
+
+## **Dummy Coder**
+* Purpose: create a dummy code variable using a base variable and regular expressions to characterize the levels
+* Arguments:
+  + regexps: regular expressions to identify each of the new levels from the base variable
+  + baseoff: variable to base the dummy coding off of
+  + levels: levels for the new variable, corresponding to each of the regular expressions
+  + type: type of variable that should be returned, one of "factor", "numeric", "integer", or "character"
+  + labels: if type to return is factor, labels to use for each level, if desired
+
+```{r}
+dummycoder <- function(regexps, baseoff, levels, type = "factor", labels = F){
+  
+  stopifnot(!missing(regexps), length(regexps) > 0, 
+            is.vector(baseoff), !missing(levels), is.vector(baseoff),
+            length(regexps) == length(levels))
+  
+  if (!(type %in% c("factor", "numeric", "integer", "character"))){
+    stop("ERROR: 'type' must be one of 'factor', 'numeric', 'integer', or 'character'")
+  } else{
+    if (str_match(type, "numeric")){
+      labels = F
+      stopifnot(is.numeric(try(as.numeric(levels),
+                               silent = T)))
+    } else if (str_match(type =, "integer")){
+      stopifnot(is.integer(try(as.integer(levels),
+                               silent = T)))
+      labels = F
+    } else if (str_match(type, "character")){
+      stopifnot(is.character(try(as.character(levels), 
+                                 silent = T)))
+      labels = F
+    }
+  }
+  
+  if (!isFALSE(labels)){
+    stopifnot(is.vector(labels), length(labels) == length(levels))
+  }
+  
+  newvec <- rep(NA, length(baseoff))
+  remslabs <- c()
+  
+  for (i in 1:length(regexps)){
+    inds <- grep(regexps[i], baseoff)
+    if (length(i) == 0){
+      cat("WARNING: no matches for '", regpexps[i], "' in 'baseoff' vector")
+      remslabs <- c(remslabs, i)
+    } else {
+      newvec[inds] <- levels[i]
+    }
+  }
+  
+  if (str_match(type, "factor")){
+    if (length(remslabs) > 0){levels <- levels[-remslabs]}
+    if (!isFALSE(labels)){
+      if (length(remslabs) > 0){labels <- labels[-remslabs]}
+      finalvec <- factor(newvec, levels = levels, labels = labels)
+    } else{
+      finalvec <- factor(newvec, levels = levels)
+    }
+  } else if (str_match(type, "numeric")){
+    finalvec <- as.numeric(newvec)
+  } else if (str_match(type, "integer")){
+    finalvec <- as.integer(newvec)
+  } else if (str_match(type, "character")){
+    finalvec <- as.character(newvec)
+  }
+  
+  return(finalvec)
+}
+                       
+```
